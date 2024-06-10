@@ -1,0 +1,941 @@
+﻿
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using System.Net.Http;  //for HttpClient
+using System.Net.Http.Headers;
+using System.Net;   //for HttpWebRequest
+using System;  //for Encoding.Default
+using System.Security.Permissions;
+using System.Web.Script.Serialization;
+using System.Text;
+
+/// <summary>
+/// Summary description for EpicorMethod
+/// </summary>
+public class EpicorMethod
+{
+    public EpicorMethod()
+    {
+        //
+        // TODO: Add constructor logic here
+        //
+    }
+
+    /// <summary>
+    /// 获得数据列表
+    /// </summary>
+    public DataSet GetList(string strWhere)
+    {
+        StringBuilder strSql = new StringBuilder();
+        strSql.Append("select * ");
+        strSql.Append(" FROM [ps_epicor_config] ");
+        if (strWhere.Trim() != "")
+        {
+            strSql.Append(" where " + strWhere);
+        }
+        return DbHelperSQL.Query(strSql.ToString());
+    }
+
+    public static string UserAndPw = "";    //epicor UserID:Password
+    public static string APIKey = "";
+    public static string ServerName = "";
+    public static string AppServerName = "";
+
+    //Post
+    public static string RequestURLCompany = "EPIC06";
+    public static string RequestURLFormat = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.FAssetSvc/FAssets";
+    public static string Company = "EPIC06";
+    public static string AssetNum = "F0010";
+    public static string AssetDesc = "F0010 xxxx";
+    public static string AcquiredDate = "2020-8-20";
+    public static string CommissionedDate = "2020-8-20";
+    public static string GroupCode = "OF";
+    public static string ClassCode = "DESKS";
+    public static string ud_date01_c = "";
+    public static string ud_number01_c = "0";
+    public static string ud_ShortChar01_c = "";
+
+    //Delete
+    public static string DelRequestURLCompany = "EPIC06";
+    public static string DelRequestURLFormat = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.FAssetSvc/FAssets('{Company}','{AssetNum}')";
+    public static string DelFAssetDtlsURL = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.FAssetSvc/FAssetDtls('{Company}','{AssetNum}','{AssetRegID}')";
+    public static string DelCompany = "EPIC06";
+    public static string DelAssetNum = "F0010";
+    public static string DelAssetRegID = "MAIN";
+
+    //Get
+    public static string GetRequestURLCompany = "EPIC06";
+    public static string GetRequestURLFormat = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.PartSvc/Parts?$filter=Company%20eq%20'{Company}'";
+    //public static string RequestURLFormat = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.PartSvc/Parts?$filter=Company%20eq%20'{Company}'";
+    public static string GetCompany = "EPIC06";
+    public static string GetAssetNum = "F0010";
+
+    public class PartData
+    {
+        public string Company { get; set; }
+        public string PartNum { get; set; }
+        public string SearchWord { get; set; }
+        public string PartDescription { get; set; }
+    }
+
+    public PartData[] GetPartNum(string strWhere, string Title)
+    {
+        try
+        {
+            //final RequestURL
+            string RequestURL = GetRequestURLFormat;
+            RequestURL = RequestURL.Replace("{ServerName}", ServerName);
+            RequestURL = RequestURL.Replace("{EpicorAppServerName}", AppServerName);
+            RequestURL = RequestURL.Replace("{currentCompany}", GetRequestURLCompany);
+            RequestURL = RequestURL.Replace("{Company}", GetCompany);
+            RequestURL = RequestURL.Replace("{AssetNum}", GetAssetNum);
+
+
+
+            string isoJson = "";
+            string HTTPMethods = "", ResponseStatusCode = "", ResponseBody = "", IsSuccessStatusCode = "", ErrorMessage = "", ExceptionMsg = "";
+            HTTPMethods = "GET";
+            HttpSendRequest(HTTPMethods, RequestURL, UserAndPw, APIKey, isoJson, ref ResponseStatusCode, ref ResponseBody, ref IsSuccessStatusCode, ref ErrorMessage, ref ExceptionMsg);
+
+
+            //JavaScriptSerializer jss = new JavaScriptSerializer();
+            ////反序列化成Part对象
+            //PartData partData = jss.Deserialize<PartData>(ResponseBody);
+            dynamic dyn = Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+            Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+            List<PartData> lsPartDatas = new List<PartData> { };
+            foreach (var obj in dyn)
+            {
+                if (obj.Name == "value")
+                {
+                    //ErrorMessage = Convert.ToString(dyn.Last.Value);
+                    //JavaScriptSerializer jss = new JavaScriptSerializer();
+                    //反序列化成Part对象
+                    //ValueItem partData = jss.Deserialize<ValueItem>(obj.Value[10]);
+                    for (int i = 0; i < obj.Value.Count; i++)
+                    {
+                        PartData partData = new PartData();
+                        partData.Company = obj.Value[i]["Company"];
+                        partData.PartNum = obj.Value[i]["PartNum"];
+                        partData.PartDescription = obj.Value[i]["PartDescription"];
+                        lsPartDatas.Add(partData);
+                    }
+                }
+            }
+            return lsPartDatas.ToArray();
+
+        }
+        catch (AggregateException ex)
+        {
+            return null;
+        }
+    }
+
+    public class PartPriceRequest
+    {
+        public string icCustID { get; set; }
+        public string icShipToNum { get; set; }
+        public string icPartNum { get; set; }
+        public string icCustGroupCode { get; set; }
+        public string icProductCode { get; set; }
+        public double idQuantity { get; set; }
+        public string icUOMCode { get; set; }
+        public string icWarehouseCode { get; set; }
+        public string icCurrencyCode { get; set; }
+        public int pageSize { get; set; }
+        public int absolutePage { get; set; }
+    }
+
+    public class PartPricelist
+    {
+        public string PartNum { get; set; }
+        public double NetPrice { get; set; }
+        public double DiscountPercent { get; set; }
+    }
+
+    public PartPricelist[] GetPartPricelist(string Company, string CustID, string PartNum, double Quantity, string UOM)
+    {
+        try
+        {
+            //final RequestURL
+            DataSet ds = GetList("");
+            if (ds.Tables[0].Rows.Count > 0)
+            {
+                UserAndPw = ds.Tables[0].Rows[0]["UserAndPw"].ToString();
+                APIKey = ds.Tables[0].Rows[0]["APIKey"].ToString();
+                ServerName = ds.Tables[0].Rows[0]["ServerName"].ToString();
+                AppServerName = ds.Tables[0].Rows[0]["AppServerName"].ToString();
+            }
+
+            string RequestURL = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.PriceListInquirySvc/GetPriceListInquiry";
+            RequestURL = RequestURL.Replace("{ServerName}", ServerName);
+            RequestURL = RequestURL.Replace("{EpicorAppServerName}", AppServerName);
+            RequestURL = RequestURL.Replace("{currentCompany}", Company);
+
+            PartPriceRequest entry = new PartPriceRequest
+            {
+                icCustID = CustID,
+                icShipToNum = "",
+                icPartNum = PartNum,
+                icCustGroupCode = "",
+                icProductCode = "",
+                idQuantity = Quantity,
+                icUOMCode = UOM,
+                icWarehouseCode = "",
+                icCurrencyCode = "RMB",
+                pageSize = 0,
+                absolutePage = 0
+            };
+        
+
+            string isoJson = JsonConvert.SerializeObject(entry);    //Convert DataEntry to Json string
+
+            isoJson = isoJson.Replace("\r\n", "");
+            isoJson = isoJson.Replace("\"0001-01-01T00:00:00Z\"", "null");
+            isoJson = isoJson.Replace("00:00:00", "00:00:00Z");
+
+
+            string HTTPMethods = "", ResponseStatusCode = "", ResponseBody = "", IsSuccessStatusCode = "", ErrorMessage = "", ExceptionMsg = "";
+            HTTPMethods = "POST";
+            HttpSendRequest(HTTPMethods, RequestURL, UserAndPw, APIKey, isoJson, ref ResponseStatusCode, ref ResponseBody, ref IsSuccessStatusCode, ref ErrorMessage, ref ExceptionMsg);
+
+
+            string strHTTPStatusCode = ResponseStatusCode;
+            string strResponseBody = ResponseBody;
+            string strExceptionMsg = ExceptionMsg;
+            string strTDeserializeResponseBodyErrorMessage = ErrorMessage;
+
+            if (ResponseStatusCode == "200")
+            {
+
+                //JavaScriptSerializer jss = new JavaScriptSerializer();
+
+                dynamic dyn = Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                List<PartPricelist> lsPartPricelist = new List<PartPricelist> { };
+                foreach (var obj in dyn)
+                {
+                    if (obj.Name == "returnObj")
+                    {
+                        //ErrorMessage = Convert.ToString(dyn.Last.Value);
+                        //JavaScriptSerializer jss = new JavaScriptSerializer();
+                        //反序列化成Part对象
+                        //ValueItem partData = jss.Deserialize<ValueItem>(obj.Value[10]);
+                        dynamic dynValue = Newtonsoft.Json.JsonConvert.DeserializeObject(obj.First.ToString());
+                        foreach (var objdetail in dynValue)
+                        {
+                            if (objdetail.Name == "PriceListInquiry")
+                            {
+                                for (int i = 0; i < objdetail.Value.Count; i++)
+                                {
+                                    PartPricelist partPrice = new PartPricelist();
+                                    //partPrice.PartNum = objdetail.Value[i]["PartNum"];
+                                    partPrice.NetPrice = objdetail.Value[i]["NetPrice"];
+                                    partPrice.DiscountPercent = objdetail.Value[i]["DiscountPercent"];
+                                    lsPartPricelist.Add(partPrice);
+                                }
+                            }
+                        }
+                    }
+                }
+                return lsPartPricelist.ToArray();
+            }
+            else
+            {
+                return null;
+            }
+        }
+        catch (AggregateException ex)
+        {
+            return null;
+        }
+    }
+    public class SalesOrder
+    {
+        public string Company { get; set; }
+        public int OrderNum { get; set; }
+        public int CustNum { get; set; }
+        public string PONum { get; set; }
+        public DateTime OrderDate { get; set; }
+        public DateTime RequestDate { get; set; }
+        public DateTime NeedByDate { get; set; }
+        public bool UseOTS { get; set; }
+        public string OTSName { get; set; }
+        public string OTSAddress1 { get; set; }
+        public string OTSContact { get; set; }
+        public string OTSPhoneNum { get; set; }
+        public string OrderComment { get; set; }
+        public string UD_CreateBy_c { get; set; }
+        public string UD_CreateName_c { get; set; }
+        public List<OrderDtls> OrderDtls { get; set; }
+    }
+
+    public class OrderDtls
+    {
+        public string Company { get; set; }
+        public int OrderNum { get; set; }
+        public int OrderLine { get; set; }
+        public string PartNum { get; set; }
+        public string LineDesc { get; set; }
+        public double DocDspUnitPrice { get; set; }
+        public double UnitPrice { get; set; }
+        public double DiscountPercent { get; set; }
+        public double DocDspDiscount { get; set; }
+        public double SellingQuantity { get; set; }
+        public string OrderComment { get; set; }
+        public string SalesCatID { get; set; }
+        public string UD_KitNum_c { get; set; }
+        public string UD_KitDesc_c { get; set; }
+
+
+    }
+    public string PostSalesOrderToEpicor(string OrgOrderNumber)
+    {
+        string EpicorOrderNumber = "";
+        string Company = "";
+        int CustNum = 0;
+        string CustName = "";
+        ps_orders bllOrder = new ps_orders();
+        bllOrder.GetModel(OrgOrderNumber);
+
+        ps_order_goods bllOrderGoods = new ps_order_goods();
+        DataSet dsOrderGoods = bllOrderGoods.GetList(" order_id = " + bllOrder.id + "");
+
+        ps_depot_category bllCompany = new ps_depot_category();
+        Company = bllCompany.GetTitle(bllOrder.depot_category_id == null ? 0 : Convert.ToInt32(bllOrder.depot_category_id));
+
+        ps_depot bllCustomer = new ps_depot();
+        DataSet dsCustomer = bllCustomer.GetList(" id = " + bllOrder.depot_id + "");
+        if (dsCustomer.Tables[0].Rows.Count > 0)
+        {
+            CustNum = Convert.ToInt32(dsCustomer.Tables[0].Rows[0]["CustNum"]);
+            CustName = dsCustomer.Tables[0].Rows[0]["CustName"].ToString();
+        }
+
+
+        DataSet ds = GetList("");
+        if (ds.Tables[0].Rows.Count > 0)
+        {
+            UserAndPw = ds.Tables[0].Rows[0]["UserAndPw"].ToString();
+            APIKey = ds.Tables[0].Rows[0]["APIKey"].ToString();
+            ServerName = ds.Tables[0].Rows[0]["ServerName"].ToString();
+            AppServerName = ds.Tables[0].Rows[0]["AppServerName"].ToString();
+            try
+            {
+                List<OrderDtls> salesOrderDetails = new List<OrderDtls>();
+                for (int i = 0; i < dsOrderGoods.Tables[0].Rows.Count; i++)
+                {
+                    if (dsOrderGoods.Tables[0].Rows[i]["is_kit"].ToString() == "1")
+                    {
+                        ps_kitpart bllKit = new ps_kitpart();
+                        DataSet dsKit = bllKit.GetList(" product_no='" + dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString() + "' ");
+                        for (int j = 0; j < dsKit.Tables[0].Rows.Count; j++)
+                        {
+                            OrderDtls salesOrderDetail = new OrderDtls();
+                            salesOrderDetail.Company = Company;
+                            salesOrderDetail.OrderNum = 0;
+                            salesOrderDetail.OrderLine = 0;
+                            salesOrderDetail.LineDesc = dsKit.Tables[0].Rows[j]["partdesc"].ToString(); ;
+                            salesOrderDetail.PartNum = dsKit.Tables[0].Rows[j]["partnumber"].ToString();
+                            salesOrderDetail.DocDspUnitPrice = Convert.ToDouble(dsKit.Tables[0].Rows[i]["unitprice"].ToString());
+                            salesOrderDetail.SellingQuantity = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString()) * Convert.ToDouble(dsKit.Tables[0].Rows[j]["qty"].ToString());
+                            salesOrderDetail.OrderComment = dsOrderGoods.Tables[0].Rows[i]["remarks"].ToString();
+                            salesOrderDetail.SalesCatID = "20";
+                            salesOrderDetail.UD_KitNum_c = dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString();
+                            salesOrderDetail.UD_KitDesc_c = dsOrderGoods.Tables[0].Rows[i]["product_name"].ToString();
+                            salesOrderDetails.Add(salesOrderDetail);
+                        }
+                    }
+                    else
+                    {
+                        OrderDtls salesOrderDetail = new OrderDtls();
+                        salesOrderDetail.Company = Company;
+                        salesOrderDetail.OrderNum = 0;
+                        salesOrderDetail.OrderLine = 0;
+                        salesOrderDetail.LineDesc = dsOrderGoods.Tables[0].Rows[i]["product_desc"].ToString(); ;
+                        salesOrderDetail.PartNum = dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString();
+                        salesOrderDetail.DiscountPercent = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["discount"].ToString());
+                        salesOrderDetail.DocDspDiscount = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["discount"].ToString());
+                        salesOrderDetail.DocDspUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        salesOrderDetail.UnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        salesOrderDetail.SalesCatID = "20";
+                        salesOrderDetail.SellingQuantity = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString());
+                        salesOrderDetail.OrderComment = dsOrderGoods.Tables[0].Rows[i]["remarks"].ToString();
+                        salesOrderDetail.UD_KitNum_c = dsOrderGoods.Tables[0].Rows[i]["kit_num"].ToString();
+                        salesOrderDetail.UD_KitDesc_c = dsOrderGoods.Tables[0].Rows[i]["kit_desc"].ToString();
+                        salesOrderDetails.Add(salesOrderDetail);
+                    }
+                }
+
+                SalesOrder entry = new SalesOrder
+                {
+                    Company = Company,
+                    OrderNum = 0,
+                    CustNum = CustNum,
+                    PONum = OrgOrderNumber,
+                    OrderDate = Convert.ToDateTime(bllOrder.order_date),
+                    RequestDate = Convert.ToDateTime(bllOrder.ship_date),
+                    NeedByDate = Convert.ToDateTime(bllOrder.need_date),
+                    OrderComment = bllOrder.message,
+                    UseOTS = true,
+                    OTSName = CustName,
+                    OTSAddress1 = bllOrder.address,
+                    OTSContact = bllOrder.contract_name,
+                    OTSPhoneNum = bllOrder.contact_number,
+                    UD_CreateBy_c = System.Web.HttpContext.Current.Session["AID"].ToString(),
+                    UD_CreateName_c = System.Web.HttpContext.Current.Session["AdminName"].ToString(),
+
+                    OrderDtls = salesOrderDetails,
+                };
+
+                string isoJson = JsonConvert.SerializeObject(entry);    //Convert DataEntry to Json string
+
+                isoJson = isoJson.Replace("\r\n", "");
+                isoJson = isoJson.Replace("\"0001-01-01T00:00:00Z\"", "null");
+                isoJson = isoJson.Replace("00:00:00", "00:00:00Z");
+
+                //final RequestURL
+                string RequestURL = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.SalesOrderSVC/SalesOrders";
+                RequestURL = RequestURL.Replace("{ServerName}", ServerName);
+                RequestURL = RequestURL.Replace("{EpicorAppServerName}", AppServerName);
+                RequestURL = RequestURL.Replace("{currentCompany}", Company);
+
+
+
+                string HTTPMethods = "", ResponseStatusCode = "", ResponseBody = "", IsSuccessStatusCode = "", ErrorMessage = "", ExceptionMsg = "";
+                HTTPMethods = "POST";
+                HttpSendRequest(HTTPMethods, RequestURL, UserAndPw, APIKey, isoJson, ref ResponseStatusCode, ref ResponseBody, ref IsSuccessStatusCode, ref ErrorMessage, ref ExceptionMsg);
+
+                string strHTTPStatusCode = ResponseStatusCode;
+                string strResponseBody = ResponseBody;
+                string strExceptionMsg = ExceptionMsg;
+                string strTDeserializeResponseBodyErrorMessage = ErrorMessage;
+
+                if (ResponseStatusCode == "201")
+                {
+                    //JavaScriptSerializer jss = new JavaScriptSerializer();
+                    //反序列化成Part对象
+                    //PartData partData = jss.Deserialize<PartData>(ResponseBody);
+                    dynamic dyn = Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                    Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                    List<PartData> lsPartDatas = new List<PartData> { };
+                    foreach (var obj in dyn)
+                    {
+                        if (obj.Name == "OrderNum")
+                        {
+                            EpicorOrderNumber = obj.Value;
+                            break;
+                        }
+                    }
+                }
+                ////写入登录日志
+                ps_manager_log mylog = new ps_manager_log();
+                mylog.user_id = 1;
+                mylog.user_name = "API";
+                mylog.action_type = "Epcior";
+                mylog.add_time = DateTime.Now;
+                mylog.remark = "POST订单到Epicor(订单号" + EpicorOrderNumber + ")";
+                mylog.user_ip = AXRequest.GetIP();
+                mylog.Add();
+                return EpicorOrderNumber;
+
+            }
+            catch (AggregateException ex)
+            {
+                string strExceptionMsg = ex.ToString();
+                return "Error:" + strExceptionMsg;
+            }
+        }
+        else
+            return "Error";
+    }
+
+    public class QuoteOrder
+    {
+        public string Company { get; set; }
+        public int QuoteNum { get; set; }
+        public int CustNum { get; set; }
+        public string CustomerCustID { get; set; }
+        public int ShipToCustNum { get; set; }
+        public int BTCustNum { get; set; }
+        public string PONum { get; set; }
+        public DateTime DueDate { get; set; }
+        public string TerritoryID { get; set; }
+        public string SalesRepCode { get; set; }
+
+        public string UD_CreateBy_c { get; set; }
+        public string UD_CreateName_c { get; set; }
+        public string QuoteComment { get; set; }
+        public List<QuoteDtls> QuoteDtls { get; set; }
+    }
+    public class QuoteDtls
+    {
+        public string Company { get; set; }
+        public int QuoteNum { get; set; }
+        public int QuoteLine { get; set; }
+        public string PartNum { get; set; }
+        public string LineDesc { get; set; }
+        public double OrderQty { get; set; }
+        public double DocDspExpUnitPrice { get; set; }
+        public double DocExpUnitPrice { get; set; }
+
+        public double DiscountPercent { get; set; }
+        public string QuoteComment { get; set; }
+        public string SalesCatID { get; set; }
+
+    }
+
+    public class QuoteQties
+    {
+        public string Company { get; set; }
+        public int QuoteNum { get; set; }
+        public int QuoteLine { get; set; }
+        //public double QtyNum { get; set; }
+        public double SellingQuantity { get; set; }
+        public double UnitPrice { get; set; }
+        public double DocUnitPrice { get; set; }
+    }
+
+    public string PostQuoteToEpicor(string OrgOrderNumber)
+    {
+        string EpicorQuoteOrderNumber = "";
+        string Company = "";
+        int CustNum = 0;
+        string CustName = "";
+        string CustID = "";
+        string SalesRepCode = "";
+        string TerritoryID = "";
+        ps_orders bllOrder = new ps_orders();
+        bllOrder.GetModel(OrgOrderNumber);
+
+        ps_order_goods bllOrderGoods = new ps_order_goods();
+        DataSet dsOrderGoods = bllOrderGoods.GetList(" order_id = " + bllOrder.id + "");
+
+        ps_depot_category bllCompany = new ps_depot_category();
+        Company = bllCompany.GetTitle(bllOrder.depot_category_id == null ? 0 : Convert.ToInt32(bllOrder.depot_category_id));
+
+        ps_depot bllCustomer = new ps_depot();
+        DataSet dsCustomer = bllCustomer.GetList(" id = " + bllOrder.depot_id + "");
+        if (dsCustomer.Tables[0].Rows.Count > 0)
+        {
+            CustNum = Convert.ToInt32(dsCustomer.Tables[0].Rows[0]["CustNum"]);
+            CustName = dsCustomer.Tables[0].Rows[0]["CustName"].ToString();
+            CustID = dsCustomer.Tables[0].Rows[0]["CustID"].ToString();
+            SalesRepCode = dsCustomer.Tables[0].Rows[0]["SalesRepCode"].ToString();
+            TerritoryID = dsCustomer.Tables[0].Rows[0]["TerritoryID"].ToString();
+        }
+
+
+        DataSet ds = GetList("");
+        if (ds.Tables[0].Rows.Count > 0)
+        {
+            UserAndPw = ds.Tables[0].Rows[0]["UserAndPw"].ToString();
+            APIKey = ds.Tables[0].Rows[0]["APIKey"].ToString();
+            ServerName = ds.Tables[0].Rows[0]["ServerName"].ToString();
+            AppServerName = ds.Tables[0].Rows[0]["AppServerName"].ToString();
+            try
+            {
+                List<QuoteDtls> quoteOrderDetails = new List<QuoteDtls>();
+                for (int i = 0; i < dsOrderGoods.Tables[0].Rows.Count; i++)
+                {
+                    if (dsOrderGoods.Tables[0].Rows[i]["is_kit"].ToString() == "1")
+                    {
+                        ps_kitpart bllKit = new ps_kitpart();
+                        DataSet dsKit = bllKit.GetList(" product_no='" + dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString() + "' ");
+                        for (int j = 0; j < dsKit.Tables[0].Rows.Count; j++)
+                        {
+                            QuoteDtls quoteOrderDetail = new QuoteDtls();
+                            quoteOrderDetail.Company = Company;
+                            quoteOrderDetail.QuoteNum = 0;
+                            quoteOrderDetail.QuoteLine = 0;
+                            quoteOrderDetail.LineDesc = dsKit.Tables[0].Rows[j]["partdesc"].ToString(); ;
+                            quoteOrderDetail.PartNum = dsKit.Tables[0].Rows[j]["partnumber"].ToString();
+                            //quoteOrderDetail.DocDspUnitPrice = Convert.ToDouble(dsKit.Tables[0].Rows[i]["unitprice"].ToString());
+                            quoteOrderDetail.OrderQty = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString()) * Convert.ToDouble(dsKit.Tables[0].Rows[j]["qty"].ToString());
+                            quoteOrderDetail.QuoteComment = dsOrderGoods.Tables[0].Rows[i]["remarks"].ToString();
+                            quoteOrderDetail.SalesCatID = "20";
+                            quoteOrderDetails.Add(quoteOrderDetail);
+                        }
+                    }
+                    else
+                    {
+                        //List<QuoteQties> quoteOrderQtys = new List<QuoteQties>();
+                        //QuoteQties quoteOrderQty = new QuoteQties();
+                        //quoteOrderQty.Company = Company;
+                        //quoteOrderQty.QuoteNum = 0;
+                        //quoteOrderQty.QuoteLine = 0;
+                        ////quoteOrderQty.QtyNum = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString()); 
+                        //quoteOrderQty.SellingQuantity = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString());
+                        //quoteOrderQty.UnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        //quoteOrderQty.DocUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        //quoteOrderQtys.Add(quoteOrderQty);
+
+                        QuoteDtls quoteOrderDetail = new QuoteDtls();
+                        quoteOrderDetail.Company = Company;
+                        quoteOrderDetail.QuoteNum = 0;
+                        quoteOrderDetail.QuoteLine = 0;
+                        quoteOrderDetail.LineDesc = dsOrderGoods.Tables[0].Rows[i]["product_desc"].ToString(); ;
+                        quoteOrderDetail.PartNum = dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString();
+                        //quoteOrderDetail.DocDspUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["goods_price"].ToString());
+                        quoteOrderDetail.SalesCatID = "20";
+                        quoteOrderDetail.OrderQty = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString());
+                        quoteOrderDetail.DiscountPercent = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["discount"].ToString());
+                        quoteOrderDetail.DocDspExpUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        quoteOrderDetail.DocExpUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        quoteOrderDetail.QuoteComment = dsOrderGoods.Tables[0].Rows[i]["remarks"].ToString();
+                        //quoteOrderDetail.QuoteQties = quoteOrderQtys;
+                        quoteOrderDetails.Add(quoteOrderDetail);
+                    }
+                }
+
+                QuoteOrder entry = new QuoteOrder
+                {
+                    Company = Company,
+                    QuoteNum = 0,
+                    CustNum = CustNum,
+                    CustomerCustID = CustID,
+                    ShipToCustNum = CustNum,
+                    BTCustNum = CustNum,
+                    PONum = OrgOrderNumber,
+                    //DateQuoted = Convert.ToDateTime(bllOrder.order_date),
+                    DueDate = Convert.ToDateTime(bllOrder.order_date),
+                    //ExpirationDate = Convert.ToDateTime(bllOrder.need_date),
+                    QuoteComment = bllOrder.message,
+                    //SalesRepCode="IC",
+                    //TerritoryID = "IC",
+                    SalesRepCode = SalesRepCode == "" ? "IC" : SalesRepCode,
+                    TerritoryID = TerritoryID == "" ? "IC" : TerritoryID,
+                    UD_CreateBy_c = System.Web.HttpContext.Current.Session["AID"].ToString(),
+                    UD_CreateName_c = System.Web.HttpContext.Current.Session["AdminName"].ToString(),
+                    //UseOTS = true,
+                    //OTSName = CustName,
+                    //OTSAddress1 = bllOrder.address,
+                    //OTSContact = bllOrder.contract_name,
+                    //OTSPhoneNum = bllOrder.contact_number,
+
+
+                    QuoteDtls = quoteOrderDetails,
+                };
+
+                string isoJson = JsonConvert.SerializeObject(entry);    //Convert DataEntry to Json string
+
+                isoJson = isoJson.Replace("\r\n", "");
+                isoJson = isoJson.Replace("\"0001-01-01T00:00:00Z\"", "null");
+                isoJson = isoJson.Replace("00:00:00", "00:00:00Z");
+
+                isoJson = isoJson.Replace(",\"QuoteQties\":null", "");
+
+                //final RequestURL
+                string RequestURL = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.QuoteSvc/Quotes";
+                RequestURL = RequestURL.Replace("{ServerName}", ServerName);
+                RequestURL = RequestURL.Replace("{EpicorAppServerName}", AppServerName);
+                RequestURL = RequestURL.Replace("{currentCompany}", Company);
+
+
+
+                string HTTPMethods = "", ResponseStatusCode = "", ResponseBody = "", IsSuccessStatusCode = "", ErrorMessage = "", ExceptionMsg = "";
+                HTTPMethods = "POST";
+                HttpSendRequest(HTTPMethods, RequestURL, UserAndPw, APIKey, isoJson, ref ResponseStatusCode, ref ResponseBody, ref IsSuccessStatusCode, ref ErrorMessage, ref ExceptionMsg);
+
+                string strHTTPStatusCode = ResponseStatusCode;
+                string strResponseBody = ResponseBody;
+                string strExceptionMsg = ExceptionMsg;
+                string strTDeserializeResponseBodyErrorMessage = ErrorMessage;
+
+                if (ResponseStatusCode == "201")
+                {
+                    //JavaScriptSerializer jss = new JavaScriptSerializer();
+                    //反序列化成Part对象
+                    //PartData partData = jss.Deserialize<PartData>(ResponseBody);
+                    dynamic dyn = Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                    Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                    List<PartData> lsPartDatas = new List<PartData> { };
+                    foreach (var obj in dyn)
+                    {
+                        if (obj.Name == "QuoteNum")
+                        {
+                            EpicorQuoteOrderNumber = obj.Value;
+                            UpdateQuoteToEpicor(OrgOrderNumber, EpicorQuoteOrderNumber);
+                            break;
+                        }
+                    }
+                }
+                ////写入登录日志
+                ps_manager_log mylog = new ps_manager_log();
+                mylog.user_id = 1;
+                mylog.user_name = "API";
+                mylog.action_type = "Epcior";
+                mylog.add_time = DateTime.Now;
+                mylog.remark = "POST订单到Epicor(报价单号" + EpicorQuoteOrderNumber + ")";
+                mylog.user_ip = AXRequest.GetIP();
+                mylog.Add();
+                return EpicorQuoteOrderNumber;
+
+            }
+            catch (AggregateException ex)
+            {
+                string strExceptionMsg = ex.ToString();
+                return "Error:" + strExceptionMsg;
+            }
+        }
+        else
+            return "Error";
+    }
+
+
+    public bool UpdateQuoteToEpicor(string OrgOrderNumber, string EpicorOrderNumber)
+    {
+        string Company = "";
+        int CustNum = 0;
+        string CustName = "";
+        string CustID = "";
+        bool retrunValue = false;
+        ps_orders bllOrder = new ps_orders();
+        bllOrder.GetModel(OrgOrderNumber);
+
+        ps_order_goods bllOrderGoods = new ps_order_goods();
+        DataSet dsOrderGoods = bllOrderGoods.GetList(" order_id = " + bllOrder.id + "");
+
+        ps_depot_category bllCompany = new ps_depot_category();
+        Company = bllCompany.GetTitle(bllOrder.depot_category_id == null ? 0 : Convert.ToInt32(bllOrder.depot_category_id));
+
+        ps_depot bllCustomer = new ps_depot();
+        DataSet dsCustomer = bllCustomer.GetList(" id = " + bllOrder.depot_id + "");
+        if (dsCustomer.Tables[0].Rows.Count > 0)
+        {
+            CustNum = Convert.ToInt32(dsCustomer.Tables[0].Rows[0]["CustNum"]);
+            CustName = dsCustomer.Tables[0].Rows[0]["CustName"].ToString();
+            CustID = dsCustomer.Tables[0].Rows[0]["CustID"].ToString();
+        }
+
+
+        DataSet ds = GetList("");
+        if (ds.Tables[0].Rows.Count > 0)
+        {
+            UserAndPw = ds.Tables[0].Rows[0]["UserAndPw"].ToString();
+            APIKey = ds.Tables[0].Rows[0]["APIKey"].ToString();
+            ServerName = ds.Tables[0].Rows[0]["ServerName"].ToString();
+            AppServerName = ds.Tables[0].Rows[0]["AppServerName"].ToString();
+            try
+            {
+                List<QuoteDtls> quoteOrderDetails = new List<QuoteDtls>();
+                for (int i = 0; i < dsOrderGoods.Tables[0].Rows.Count; i++)
+                {
+                    if (dsOrderGoods.Tables[0].Rows[i]["is_kit"].ToString() == "1")
+                    {
+                        ps_kitpart bllKit = new ps_kitpart();
+                        DataSet dsKit = bllKit.GetList(" product_no='" + dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString() + "' ");
+                        for (int j = 0; j < dsKit.Tables[0].Rows.Count; j++)
+                        {
+                            QuoteDtls quoteOrderDetail = new QuoteDtls();
+                            quoteOrderDetail.Company = Company;
+                            quoteOrderDetail.QuoteNum = Convert.ToInt32(EpicorOrderNumber);
+                            quoteOrderDetail.QuoteLine = 0;
+                            quoteOrderDetail.LineDesc = dsKit.Tables[0].Rows[j]["partdesc"].ToString(); ;
+                            quoteOrderDetail.PartNum = dsKit.Tables[0].Rows[j]["partnumber"].ToString();
+                            //quoteOrderDetail.DocDspUnitPrice = Convert.ToDouble(dsKit.Tables[0].Rows[i]["unitprice"].ToString());
+                            quoteOrderDetail.OrderQty = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString()) * Convert.ToDouble(dsKit.Tables[0].Rows[j]["qty"].ToString());
+                            quoteOrderDetail.QuoteComment = dsOrderGoods.Tables[0].Rows[i]["remarks"].ToString();
+                            quoteOrderDetail.SalesCatID = "20";
+                            quoteOrderDetails.Add(quoteOrderDetail);
+                        }
+                    }
+                    else
+                    {
+                        List<QuoteQties> quoteOrderQtys = new List<QuoteQties>();
+                        QuoteQties quoteOrderQty = new QuoteQties();
+                        quoteOrderQty.Company = Company;
+                        quoteOrderQty.QuoteNum = Convert.ToInt32(EpicorOrderNumber);
+                        quoteOrderQty.QuoteLine = i + 1;
+                        //quoteOrderQty.QtyNum = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString());
+                        quoteOrderQty.SellingQuantity = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString());
+                        quoteOrderQty.UnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        quoteOrderQty.DocUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        quoteOrderQtys.Add(quoteOrderQty);
+
+                        QuoteDtls quoteOrderDetail = new QuoteDtls();
+                        quoteOrderDetail.Company = Company;
+                        quoteOrderDetail.QuoteNum = Convert.ToInt32(EpicorOrderNumber);
+                        quoteOrderDetail.QuoteLine = i + 1;
+                        quoteOrderDetail.LineDesc = dsOrderGoods.Tables[0].Rows[i]["product_desc"].ToString(); ;
+                        quoteOrderDetail.PartNum = dsOrderGoods.Tables[0].Rows[i]["product_no"].ToString();
+                        //quoteOrderDetail.DocDspUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["goods_price"].ToString());
+                        quoteOrderDetail.SalesCatID = "20";
+                        quoteOrderDetail.OrderQty = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["quantity"].ToString());
+                        quoteOrderDetail.DiscountPercent = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["discount"].ToString());
+                        quoteOrderDetail.DocDspExpUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        quoteOrderDetail.DocExpUnitPrice = Convert.ToDouble(dsOrderGoods.Tables[0].Rows[i]["real_price"].ToString());
+                        quoteOrderDetail.QuoteComment = dsOrderGoods.Tables[0].Rows[i]["remarks"].ToString();
+                        //quoteOrderDetail.QuoteQties = quoteOrderQtys;
+                        quoteOrderDetails.Add(quoteOrderDetail);
+                    }
+                }
+
+                QuoteOrder entry = new QuoteOrder
+                {
+                    Company = Company,
+                    QuoteNum = Convert.ToInt32(EpicorOrderNumber),
+                    CustNum = CustNum,
+                    CustomerCustID = CustID,
+                    ShipToCustNum = CustNum,
+                    BTCustNum = CustNum,
+                    PONum = OrgOrderNumber,
+                    //DateQuoted = Convert.ToDateTime(bllOrder.order_date),
+                    DueDate = Convert.ToDateTime(bllOrder.order_date),
+                    //ExpirationDate = Convert.ToDateTime(bllOrder.need_date),
+                    QuoteComment = bllOrder.message,
+                    SalesRepCode = "IC",
+                    //UseOTS = true,
+                    //OTSName = CustName,
+                    //OTSAddress1 = bllOrder.address,
+                    //OTSContact = bllOrder.contract_name,
+                    //OTSPhoneNum = bllOrder.contact_number,
+
+
+                    QuoteDtls = quoteOrderDetails,
+                };
+
+                string isoJson = JsonConvert.SerializeObject(entry);    //Convert DataEntry to Json string
+
+                isoJson = isoJson.Replace("\r\n", "");
+                isoJson = isoJson.Replace("\"0001-01-01T00:00:00Z\"", "null");
+                isoJson = isoJson.Replace("00:00:00", "00:00:00Z");
+                isoJson = isoJson.Replace(",\"QuoteQties\":null", "");
+
+                //final RequestURL
+                string RequestURL = "https://{ServerName}/{EpicorAppServerName}/api/v2/odata/{currentCompany}/Erp.BO.QuoteSvc/Quotes";
+                RequestURL = RequestURL.Replace("{ServerName}", ServerName);
+                RequestURL = RequestURL.Replace("{EpicorAppServerName}", AppServerName);
+                RequestURL = RequestURL.Replace("{currentCompany}", Company);
+
+
+
+                string HTTPMethods = "", ResponseStatusCode = "", ResponseBody = "", IsSuccessStatusCode = "", ErrorMessage = "", ExceptionMsg = "";
+                HTTPMethods = "POST";
+                HttpSendRequest(HTTPMethods, RequestURL, UserAndPw, APIKey, isoJson, ref ResponseStatusCode, ref ResponseBody, ref IsSuccessStatusCode, ref ErrorMessage, ref ExceptionMsg);
+
+                string strHTTPStatusCode = ResponseStatusCode;
+                string strResponseBody = ResponseBody;
+                string strExceptionMsg = ExceptionMsg;
+                string strTDeserializeResponseBodyErrorMessage = ErrorMessage;
+
+                if (ResponseStatusCode == "201")
+                {
+                    //JavaScriptSerializer jss = new JavaScriptSerializer();
+                    //反序列化成Part对象
+                    //PartData partData = jss.Deserialize<PartData>(ResponseBody);
+                    dynamic dyn = Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                    Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+                    List<PartData> lsPartDatas = new List<PartData> { };
+                    foreach (var obj in dyn)
+                    {
+                        if (obj.Name == "QuoteNum")
+                        {
+                            retrunValue = true;
+                        }
+                    }
+                }
+
+
+            }
+            catch (AggregateException ex)
+            {
+                string strExceptionMsg = ex.ToString();
+                retrunValue = false;
+            }
+        }
+        else
+            retrunValue = false;
+
+        return retrunValue;
+    }
+
+    private void HttpSendRequest(string HTTPMethods, string RequestURL, string epicorLogin, string XAPIKey, string jsonStr, ref string ResponseStatusCode, ref string ResponseBody, ref string IsSuccessStatusCode, ref string ErrorMessage, ref string ExceptionMsg)
+    {
+        try
+        {
+            //Ignore SSL certificates
+            var handler = new WebRequestHandler();
+            handler.ServerCertificateValidationCallback = delegate { return true; };
+
+            using (HttpClient client = new HttpClient(handler))
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes(epicorLogin)));
+                // Add an Accept header for JSON format.
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Add("X-API-Key", XAPIKey);
+                string TokenCreateURL = RequestURL;
+                var request = new HttpRequestMessage();
+                HttpResponseMessage response = null;
+
+                if (HTTPMethods == "POST")
+                {
+                    request.RequestUri = new Uri(TokenCreateURL);
+                    request.Method = HttpMethod.Post;
+
+                    //send user credential
+                    request.Content = new StringContent(jsonStr, Encoding.GetEncoding("UTF-8"), "application/json");
+                    request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                    response = client.SendAsync(request).Result;
+                    ResponseStatusCode = Convert.ToString((int)response.StatusCode);
+                }
+
+                if (HTTPMethods == "DELETE")
+                {
+                    response = client.DeleteAsync(TokenCreateURL).Result;
+                    ResponseStatusCode = Convert.ToString((int)response.StatusCode);
+                }
+
+                if (HTTPMethods == "GET")
+                {
+                    response = client.GetAsync(TokenCreateURL).Result;
+                    ResponseStatusCode = Convert.ToString((int)response.StatusCode);
+                }
+
+                //Get response
+
+
+                if (response.IsSuccessStatusCode)
+                {
+                    IsSuccessStatusCode = "Yes";
+                }
+                else
+                {
+                    IsSuccessStatusCode = "No";
+                }
+
+                ResponseBody = response.Content.ReadAsStringAsync().Result;
+
+                //Deserialize ResponseBody and catch "ErrorMessage"
+                if (ResponseBody.IndexOf("\"ErrorMessage\"") > 0)
+                {
+                    dynamic dyn = Newtonsoft.Json.JsonConvert.DeserializeObject(ResponseBody);
+
+                    foreach (var obj in dyn)
+                    {
+                        if (obj.Name == "ErrorMessage")
+                        {
+                            ErrorMessage = Convert.ToString(obj.Value);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        catch (AggregateException ex)
+        {
+            ExceptionMsg = ex.ToString();
+        }
+    }
+
+}

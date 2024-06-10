@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.33130.400
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "AX_PS20230210", ".", "{5B7916D0-84BC-4994-8182-697B652C3FCF}"
+	ProjectSection(WebsiteProperties) = preProject
+		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.0"
+		Debug.AspNetCompiler.VirtualPath = "/net"
+		Debug.AspNetCompiler.PhysicalPath = "..\AX_PS20230210\"
+		Debug.AspNetCompiler.TargetPath = "..\net\"
+		Debug.AspNetCompiler.Updateable = "true"
+		Debug.AspNetCompiler.ForceOverwrite = "true"
+		Debug.AspNetCompiler.FixedNames = "false"
+		Debug.AspNetCompiler.Debug = "True"
+		Release.AspNetCompiler.VirtualPath = "/net"
+		Release.AspNetCompiler.PhysicalPath = "..\AX_PS20230210\"
+		Release.AspNetCompiler.TargetPath = "..\net\"
+		Release.AspNetCompiler.Updateable = "true"
+		Release.AspNetCompiler.ForceOverwrite = "true"
+		Release.AspNetCompiler.FixedNames = "false"
+		Release.AspNetCompiler.Debug = "False"
+		VWDPort = "12437"
+		VWDVirtualPath = "/"
+		SlnRelativePath = "..\AX_PS20230210\"
+		DefaultWebSiteLanguage = "Visual C#"
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|.NET = Debug|.NET
+		Debug|Any CPU = Debug|Any CPU
+		Release|.NET = Release|.NET
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5B7916D0-84BC-4994-8182-697B652C3FCF}.Debug|.NET.ActiveCfg = Debug|Any CPU
+		{5B7916D0-84BC-4994-8182-697B652C3FCF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B7916D0-84BC-4994-8182-697B652C3FCF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B7916D0-84BC-4994-8182-697B652C3FCF}.Release|.NET.ActiveCfg = Debug|Any CPU
+		{5B7916D0-84BC-4994-8182-697B652C3FCF}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B7916D0-84BC-4994-8182-697B652C3FCF}.Release|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {66D6E180-70B6-4194-A300-3BE3DE1723B5}
+	EndGlobalSection
+EndGlobal
